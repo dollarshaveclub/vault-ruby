@@ -106,7 +106,7 @@ module Vault
     # @see Client#request
     def request_with_retries(verb, path, data = {}, headers = {})
       unless options[:retry_options].nil?
-        send(:with_retries, options[:retry_options]) do
+        send(:with_retries, *options[:retry_options]) do
           request(verb, path, data, headers)
         end
       else

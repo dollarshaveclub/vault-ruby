@@ -79,6 +79,7 @@ module Vault
       let(:retry_options) { { :retry_options => [Vault::HTTPServerError, :attempts => 1, :base => 0.00] } }
 
       it "delegates to #request method when :retry_options is nil" do
+        expect(subject).to_not receive(:with_retries)
         expect(subject).to receive(:request).with(:get, "/foo", {}, {})
         subject.request_with_retries(:get, "/foo")
       end
@@ -86,7 +87,7 @@ module Vault
       it "delegates to #request method composed in #with_retry block when :retry_options is not nil" do
         allow(subject).to receive(:options).and_return(subject.options.merge(retry_options))
         expect(subject).to receive(:request).with(:get, "/foo", {}, {})
-        expect(subject).to receive(:with_retries).with(retry_options[:retry_options]).and_call_original
+        expect(subject).to receive(:with_retries).with(*retry_options[:retry_options]).and_call_original
         subject.request_with_retries(:get, "/foo")
       end
     end

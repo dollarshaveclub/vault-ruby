@@ -39,7 +39,7 @@ module Vault
     def options
       Hash[*Vault::Configurable.keys.map do |key|
         [key, instance_variable_get(:"@#{key}")]
-      end.flatten]
+      end.flatten(1)]
     end
   end
 end
