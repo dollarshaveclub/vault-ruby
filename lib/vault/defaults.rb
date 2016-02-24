@@ -147,6 +147,12 @@ module Vault
       def retry_options
         nil
       end
+
+      # A default options for retrying requests
+      # @return [Array, nil]
+      def path_prefix
+        ENV["VAULT_PATH_PREFIX"]
+      end
     end
   end
 end
