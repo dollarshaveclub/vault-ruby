@@ -135,9 +135,7 @@ module Vault
     #   the response body
     def request(verb, path, data = {}, headers = {})
       # Build the URI and request object from the given information
-      path_prefix = options[:path_prefix] ? options[:path_prefix] : ''
-
-      uri = build_uri(verb, path_prefix + path, data)
+      uri = build_uri(verb, path, data)
       request = class_for_request(verb).new(uri.request_uri)
 
       # Get a list of headers
