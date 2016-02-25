@@ -10,6 +10,10 @@ module Vault
     def logical
       @logical ||= Logical.new(self)
     end
+
+    def read(path)
+      logical.read(path).try(:data).try(:[], :value)
+    end
   end
 
   class Logical < Request
