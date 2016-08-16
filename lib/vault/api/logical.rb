@@ -11,8 +11,8 @@ module Vault
       @logical ||= Logical.new(self)
     end
 
-    def read(path)
-      logical.read(path).try(:data).try(:[], :value)
+    def read(path, options = {})
+      logical.read(path, options).try(:data).try(:[], :value)
     end
   end
 
@@ -45,8 +45,8 @@ module Vault
     #   the path to read
     #
     # @return [Secret, nil]
-    def read(path)
-      json = client.get("/v1/#{CGI.escape(full_path(path))}")
+    def read(path, options = {})
+      json = client.get("/v1/#{CGI.escape(full_path(path, options))}")
       return Secret.decode(json)
     rescue HTTPError => e
       return nil if e.code == 404
@@ -91,8 +91,9 @@ module Vault
 
     private
 
-    def full_path(path)
-      client.options[:path_prefix].nil? ? path : client.options[:path_prefix] + path
+    def full_path(path, options = {})
+      prefix = options[:path_prefix] || client.options[:path_prefix]
+      [prefix, path].compact.join('/').gsub /\/+/, '/'
     end
   end
 end

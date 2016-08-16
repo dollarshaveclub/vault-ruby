@@ -31,6 +31,13 @@ module Vault
         expect(secret.data).to eq(foo: "bar")
       end
 
+      it "returns the secret when it exists and is specified via prefix" do
+        subject.write("secret/test-read", foo: "bar")
+        secret = subject.read("test-read", :path_prefix => "secret")
+        expect(secret).to be
+        expect(secret.data).to eq(foo: "bar")
+      end
+
       it "allows special characters" do
         subject.write("secret/b:@c%n-read", foo: "bar")
         secret = subject.read("secret/b:@c%n-read")
