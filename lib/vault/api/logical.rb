@@ -14,6 +14,10 @@ module Vault
     def read(path, options = {})
       logical.read(path, options).try(:data).try(:[], :value)
     end
+
+    def full_path(path, options = {})
+      logical.full_path path, options
+    end
   end
 
   class Logical < Request
@@ -89,8 +93,7 @@ module Vault
       return true
     end
 
-    private
-
+    
     def full_path(path, options = {})
       prefix = options[:path_prefix] || client.options[:path_prefix]
       [prefix, path].compact.join('/').gsub /\/+/, '/'
