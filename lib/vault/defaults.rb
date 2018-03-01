@@ -42,11 +42,15 @@ module Vault
       # The vault token to use for authentiation.
       # @return [String, nil]
       def token
-        if VAULT_DISK_TOKEN.exist? && VAULT_DISK_TOKEN.readable?
-          VAULT_DISK_TOKEN.read
-        else
-          ENV["VAULT_TOKEN"]
+        if !ENV["VAULT_TOKEN"].nil?
+          return ENV["VAULT_TOKEN"]
         end
+
+        if VAULT_DISK_TOKEN.exist? && VAULT_DISK_TOKEN.readable?
+          return VAULT_DISK_TOKEN.read.chomp
+        end
+
+        nil
       end
 
       # The number of seconds to wait when trying to open a connection before
@@ -94,10 +98,18 @@ module Vault
         ENV["VAULT_SSL_CIPHERS"] || SSL_CIPHERS
       end
 
+      # The raw contents (as a string) for the pem file. To specify the path to
+      # the pem file, use {#ssl_pem_file} instead. This value is preferred over
+      # the value for {#ssl_pem_file}, if set.
+      # @return [String, nil]
+      def ssl_pem_contents
+        ENV["VAULT_SSL_PEM_CONTENTS"]
+      end
+
       # The path to a pem on disk to use with custom SSL verification
       # @return [String, nil]
       def ssl_pem_file
-        ENV["VAULT_SSL_CERT"]
+        ENV["VAULT_SSL_CERT"] || ENV["VAULT_SSL_PEM_FILE"]
       end
 
       # Passphrase to the pem file on disk to use with custom SSL verification
@@ -122,6 +134,11 @@ module Vault
       # Verify SSL requests (default: true)
       # @return [true, false]
       def ssl_verify
+        # Vault CLI uses this envvar, so accept it by precedence
+        if !ENV["VAULT_SKIP_VERIFY"].nil?
+          return false
+        end
+
         if ENV["VAULT_SSL_VERIFY"].nil?
           true
         else
