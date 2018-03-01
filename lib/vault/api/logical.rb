@@ -33,7 +33,7 @@ module Vault
     # @return [Array<String>]
     def list(path, options = {})
       headers = extract_headers!(options)
-      json = client.list("/v1/#{encode_path(full_path(path))}", {}, headers)
+      json = client.list("/v1/#{encode_path(full_path(path, options))}", {}, headers)
       json[:data][:keys] || []
     rescue HTTPError => e
       return [] if e.code == 404
@@ -73,7 +73,7 @@ module Vault
     # @return [Secret]
     def write(path, data = {}, options = {})
       headers = extract_headers!(options)
-      json = client.put("/v1/#{encode_path(full_path(path))}", JSON.fast_generate(data), headers)
+      json = client.put("/v1/#{encode_path(full_path(path, options))}", JSON.fast_generate(data), headers)
       if json.nil?
         return true
       else
@@ -91,8 +91,8 @@ module Vault
     #   the path to delete
     #
     # @return [true]
-    def delete(path)
-      client.delete("/v1/#{encode_path(full_path(path))}")
+    def delete(path, options = {})
+      client.delete("/v1/#{encode_path(full_path(path, options))}")
       return true
     end
 
