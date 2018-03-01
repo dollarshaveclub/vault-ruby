@@ -98,5 +98,69 @@ module Vault
       client.token = secret.auth.client_token
       return secret
     end
+
+    # Authenticate via the "ldap" authentication method. If authentication
+    # is successful, the resulting token will be stored on the client and used
+    # for future requests.
+    #
+    # @example
+    #   Vault.auth.ldap("sethvargo", "s3kr3t") #=> #<Vault::Secret lease_id="">
+    #
+    # @param [String] username
+    # @param [String] password
+    # @param [Hash] options
+    #   additional options to pass to the authentication call, such as a custom
+    #   mount point
+    #
+    # @return [Secret]
+    def ldap(username, password, options = {})
+      payload = { password: password }.merge(options)
+      json = client.post("/v1/auth/ldap/login/#{CGI.escape(username)}", JSON.fast_generate(payload))
+      secret = Secret.decode(json)
+      client.token = secret.auth.client_token
+      return secret
+    end
+
+    # Authenticate via the GitHub authentication method. If authentication is
+    # successful, the resulting token will be stored on the client and used
+    # for future requests.
+    #
+    # @example
+    #   Vault.auth.github("mypersonalgithubtoken") #=> #<Vault::Secret lease_id="">
+    #
+    # @param [String] github_token
+    #
+    # @return [Secret]
+    def github(github_token)
+      payload = {token: github_token}
+      json = client.post("/v1/auth/github/login", JSON.fast_generate(payload))
+      secret = Secret.decode(json)
+      client.token = secret.auth.client_token
+      return secret
+    end
+
+    # Authenticate via a TLS authentication method. If authentication is
+    # successful, the resulting token will be stored on the client and used
+    # for future requests.
+    #
+    # @example Sending raw pem contents
+    #   Vault.auth.tls(pem_contents) #=> #<Vault::Secret lease_id="">
+    #
+    # @example Reading a pem from disk
+    #   Vault.auth.tls(File.read("/path/to/my/certificate.pem")) #=> #<Vault::Secret lease_id="">
+    #
+    # @param [String] pem (default: the configured SSL pem file or contents)
+    #   The raw pem contents to use for the login procedure.
+    #
+    # @return [Secret]
+    def tls(pem = nil)
+      new_client = client.dup
+      new_client.ssl_pem_contents = pem if !pem.nil?
+
+      json = new_client.post("/v1/auth/cert/login")
+      secret = Secret.decode(json)
+      client.token = secret.auth.client_token
+      return secret
+    end
   end
 end
