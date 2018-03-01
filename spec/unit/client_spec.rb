@@ -27,6 +27,16 @@ module Vault
       end
     end
 
+    describe "#with_token" do
+      it "does not change the original client" do
+        client.token = "abcd-1234"
+        client.with_token("defg-5678") do |c|
+          expect(c.token).to_not eq("abcd-1234")
+        end
+        expect(client.token).to eq("abcd-1234")
+      end
+    end
+
     describe "#get" do
       it "delegates to the #request_with_retries method" do
         expect(subject).to receive(:request_with_retries).with(:get, "/foo", {}, {})
@@ -157,6 +167,16 @@ module Vault
             .to_return(status: code, body: "#{code}")
           expect {
             subject.with_retries(Vault::HTTPServerError, options) do
+              subject.get("/")
+            end
+          }.to raise_error(Vault::HTTPServerError)
+        end
+
+        it "is detected by default on #{code}" do
+          stub_request(:get, "https://vault.test/")
+            .to_return(status: code, body: "#{code}")
+          expect {
+            subject.with_retries(options) do
               subject.get("/")
             end
           }.to raise_error(Vault::HTTPServerError)

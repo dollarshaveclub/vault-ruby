@@ -1,9 +1,25 @@
 require "json"
 
-require_relative "../sys"
-
 module Vault
-  class Policy < Response.new(:rules); end
+  class Policy < Response
+    # @!attribute [r] name
+    #   Name of the policy.
+    #
+    #   @example Get the name of the policy
+    #     policy.name #=> "default"
+    #
+    #   @return [String]
+    field :name
+
+    # @!attribute [r] rules
+    #   Raw HCL policy.
+    #
+    #   @example Display the list of rules
+    #     policy.rules #=> "path \"secret/foo\" {}"
+    #
+    #   @return [String]
+    field :rules
+  end
 
   class Sys
     # The list of policies in vault.
@@ -24,7 +40,7 @@ module Vault
     #
     # @return [Policy, nil]
     def policy(name)
-      json = client.get("/v1/sys/policy/#{CGI.escape(name)}")
+      json = client.get("/v1/sys/policy/#{encode_path(name)}")
       return Policy.decode(json)
     rescue HTTPError => e
       return nil if e.code == 404
@@ -54,7 +70,7 @@ module Vault
     #
     # @return [true]
     def put_policy(name, rules)
-      client.put("/v1/sys/policy/#{CGI.escape(name)}", JSON.fast_generate(
+      client.put("/v1/sys/policy/#{encode_path(name)}", JSON.fast_generate(
         rules: rules,
       ))
       return true
@@ -69,7 +85,7 @@ module Vault
     # @param [String] name
     #   the name of the policy
     def delete_policy(name)
-      client.delete("/v1/sys/policy/#{CGI.escape(name)}")
+      client.delete("/v1/sys/policy/#{encode_path(name)}")
       return true
     end
   end
