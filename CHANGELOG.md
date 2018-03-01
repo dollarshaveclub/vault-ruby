@@ -1,8 +1,136 @@
 # Vault Ruby Changelog
 
-## v0.3.0.dev (Unreleased)
+## v0.10.1 (May 8, 2017)
+
+IMPROVEMENTS
+
+- `vault-ruby` is licensed under Mozilla Public License 2.0, and has been for over 2 years. This patch release updates the gemspec to use the correct SPDX ID string for reporting this license, but **no change to the licensing of this gem has occurred**.
+
+## v0.10.0 (April 19, 2017)
+
+IMPROVEMENTS
+
+- `#with_retries` now defaults to checking `HTTPServerError` if called without
+  an error classes
+
+BUG FIXES
+
+- Don't randomly fail when parsing with Time.parse [GH-140]
 
 
+## v0.9.0 (March 10, 2017)
+
+IMPROVEMENTS
+
+- The pool size used to talk with vault is now configurable. Using `Vault.pool_size` or the env var `VAULT_POOL_SIZE`.
+
+## v0.8.0 (March 3, 2017)
+
+BREAKING CHANGES
+
+- Use PUT/POST for all functions that involve tokens [GH-117]. For Vault 0.6+,
+  this will work as-expected. For older Vault versions, you will need to use an
+  older client library which uses the URL instead. This is deprecated in Vault
+  because the URL would include the token, thus revealing it in request logs.
+  These new methods place the token in the body instead.
+
+BUG FIXES
+
+- Do not convert arrays in `#to_h` [GH-125]
+- Prevent mismatched checkout/checkin from the connection pool; this will avoid masking errors that occur on pool checkout.
+
+IMPROVEMENTS
+
+- Support new init API options [GH-127]
+- Return base64-encoded keys in init response [GH-128]
+- Add support for `#hostname` for specifying SNI hostname to validate [GH-112]
+
+## v0.7.3 (October 25, 2016)
+
+BUG FIXES
+
+- Allow options to be set on `Vault` as well as any `Vault::Client`
+  instance to be used properly.
+- Remove Ruby 2.0 syntax in favor of Ruby 1.9
+
+## v0.7.2 (October 24, 2016)
+
+BUG FIXES
+
+- Set the default pool size to 16 rather than calculating from
+  the number of available file descriptors.
+
+## v0.7.1 (October 21, 2016)
+
+BUG FIXES
+
+- Properly vendor Net::HTTP::Persistent so that it doesn't collide
+  with net-http-persistent
+- Fix behavior where `verify_mode` was forced to `VERIFY_PEER`
+  if a custom CA was set
+
+## v0.7.0 (October 18, 2016)
+
+DEPRECATIONS
+
+- Vault versions older than 0.5.3 are no longer tested
+
+NEW FEATURES
+
+- Add support for AppRole
+- Expose the auth/tune API
+- Add support for leader step down
+- Use persistent connections to Vault to speed up requests
+- Add support for a custom ssl certificate store
+
+BUG FIXES
+
+- Allow for spaces in secret names properly
+
+## v0.6.0 (August 30, 2016)
+
+NEW FEATURES
+
+- Add support for Vault 0.6.1 APIs
+- Add new token `accessors` API method
+- Add TLS authentication endpoints
+
+BUG FIXES
+
+- Restore old `to_h` behavior on response objects
+
+IMPROVEMENTS
+
+- Bootstrap full testing harness against old Vault versions
+
+## v0.5.0 (August 16, 2016)
+
+NEW FEATURES
+
+- Add TTL wrapping to logical and auth backends
+- Support passing PGP keys to init
+
+BUG FIXES
+
+- New API documentation
+- Remove recursive requires
+
+## v0.4.0 (March 31, 2016)
+
+NEW FEATURES
+
+- Add LDAP authentication method [GH-61]
+- Add GitHub authentication method [GH-37]
+- Add `create_orphan` method [GH-65]
+- Add `lookup` and `lookup_self` for tokens
+- Accept `VAULT_SKIP_VERIFY` environment variable [GH-66]
+
+BUG FIXES
+
+- Prefer `VAULT_TOKEN` environment variable over disk to mirror Vault's own
+  behavior [GH-98]
+- Do not duplicate query parameters on HEAD/GET requests [GH-62]
+- Yield exception in `with_retries` [GH-68]
 
 ## v0.3.0 (February 16, 2016)
 
