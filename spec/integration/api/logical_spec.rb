@@ -44,6 +44,17 @@ module Vault
         expect(secret).to be
         expect(secret.data).to eq(foo: "bar")
       end
+
+      it "does not sleep by default" do
+        Vault::Logical.should_not_receive(:sleep)
+        subject.read("secret/test-read")
+      end
+
+      it "sleeps when jitter is configured via an options hash" do
+        jitter_amount = 111
+        Kernel.should_receive(:sleep).with(jitter_amount / 1000.0)
+        subject.read("secret/test-read", :jitter_size => 1, :jitter_constant => jitter_amount)
+      end
     end
 
     describe "#write" do
