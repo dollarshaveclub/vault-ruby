@@ -23,7 +23,8 @@ module Vault
         :retry_options,
         :path_prefix,
         :jitter_multiplier,
-        :jitter_size
+        :jitter_size,
+        :jitter_constant
       ]
     end
 

@@ -161,6 +161,10 @@ module Vault
       def jitter_multiplier
         ENV["VAULT_JITTER_MULTIPLIER"] || 1
       end
+
+      def jitter_constant
+        ENV["VAULT_JITTER_CONSTANT"] || 0
+      end
     end
   end
 end
