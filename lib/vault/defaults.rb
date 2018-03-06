@@ -170,6 +170,18 @@ module Vault
       def path_prefix
         ENV["VAULT_PATH_PREFIX"]
       end
+
+      def jitter_size
+        ENV["VAULT_JITTER_SIZE"] || 0
+      end
+
+      def jitter_multiplier
+        ENV["VAULT_JITTER_MULTIPLIER"] || 1
+      end
+
+      def jitter_constant
+        ENV["VAULT_JITTER_CONSTANT"] || 0
+      end
     end
   end
 end
