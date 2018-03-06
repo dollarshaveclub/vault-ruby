@@ -1,4 +1,5 @@
 require_relative "secret"
+require_relative "jitterable"
 require_relative "../client"
 require_relative "../request"
 require_relative "../response"
@@ -21,6 +22,8 @@ module Vault
   end
 
   class Logical < Request
+    include Vault::Jitterable
+
     # List the secrets at the given path, if the path supports listing. If the
     # the path does not exist, an exception will be raised.
     #
@@ -50,6 +53,7 @@ module Vault
     #
     # @return [Secret, nil]
     def read(path, options = {})
+      sleep_jitter options
       json = client.get("/v1/#{CGI.escape(full_path(path, options))}")
       return Secret.decode(json)
     rescue HTTPError => e

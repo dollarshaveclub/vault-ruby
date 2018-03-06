@@ -21,7 +21,9 @@ module Vault
         :ssl_timeout,
         :timeout,
         :retry_options,
-        :path_prefix
+        :path_prefix,
+        :jitter_multiplier,
+        :jitter_size
       ]
     end
 
