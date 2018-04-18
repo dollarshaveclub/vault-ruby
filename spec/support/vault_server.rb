@@ -40,19 +40,21 @@ module RSpec
 
       wait_for_ready do
         @token = File.read(TOKEN_PATH)
-
+        
         output = ""
         while
           io.rewind
           output = io.read
           break if !output.empty?
         end
-
+        
         if output.match(/Unseal Key.*: (.+)/)
           @unseal_token = $1.strip
         else
           raise "Vault did not return an unseal token!"
         end
+
+        enable_secrets_v1_engine(@token)
       end
     end
 
@@ -70,6 +72,14 @@ module RSpec
       yield
     rescue Timeout::Error
       raise "Vault did not start in 5 seconds!"
+    end
+
+    # vault 0.10.0 dev server default behavior is to enable v2 secrets which breaks integration tests
+    # this hack disables v2 secrets engine and enables v1 secrets engine
+    def enable_secrets_v1_engine(token)
+      disable_v2_success = system("VAULT_ADDR='http://127.0.0.1:8200' VAULT_TOKEN=#{token} vault secrets disable secret")
+      enable_v1_success = system("VAULT_ADDR='http://127.0.0.1:8200' VAULT_TOKEN=#{token} vault secrets enable -path=secret -version=1 kv")
+      raise "Unable to start secrets v1 engine" unless disable_v2_success && enable_v1_success
     end
   end
 end
