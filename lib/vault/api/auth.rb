@@ -173,12 +173,70 @@ module Vault
     # @param [String] role
     # @param [String] pkcs7
     #   pkcs7 returned by the instance identity document (with line breaks removed)
-    # @param [String] nonce
+    # @param [String] nonce optional
+    # @param [String] route optional
     #
     # @return [Secret]
-    def aws_ec2(role, pkcs7, nonce)
-      payload = { role: role, pkcs7: pkcs7, nonce: nonce }
-      json = client.post('/v1/auth/aws-ec2/login', JSON.fast_generate(payload))
+    def aws_ec2(role, pkcs7, nonce = nil, route = nil)
+      route ||= '/v1/auth/aws-ec2/login'
+      payload = { role: role, pkcs7: pkcs7 }
+      # Set a custom nonce if client is providing one
+      payload[:nonce] = nonce if nonce
+      json = client.post(route, JSON.fast_generate(payload))
+      secret = Secret.decode(json)
+      client.token = secret.auth.client_token
+      return secret
+    end
+
+    # Authenticate via AWS IAM auth method by providing a AWS CredentialProvider (either ECS, AssumeRole, etc.)
+    # If authentication is successful, the resulting token will be stored on the client and used
+    # for future requests.
+    #
+    # @example
+    #   Vault.auth.aws_iam("dev-role-iam", Aws::AssumeRoleCredentials.new, "vault.example.com", "https://sts.us-east-2.amazonaws.com") #=> #<Vault::Secret lease_id="">
+    #
+    # @param [String] role
+    # @param [CredentialProvider] credentials_provider
+    #   https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/CredentialProvider.html
+    # @param [String] iam_auth_header_value optional
+    #   As of Jan 2018, Vault will accept ANY or NO header if none is configured by the Vault server admin
+    # @param [String] sts_endpoint optional
+    #   https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html
+    # @return [Secret]
+    def aws_iam(role, credentials_provider, iam_auth_header_value = nil, sts_endpoint = 'https://sts.amazonaws.com')
+      require "aws-sigv4"
+      require "base64"
+
+      request_body   = 'Action=GetCallerIdentity&Version=2011-06-15'
+      request_method = 'POST'
+
+      vault_headers = {
+        'User-Agent' => Vault::Client::USER_AGENT,
+        'Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'
+      }
+
+      vault_headers['X-Vault-AWS-IAM-Server-ID'] = iam_auth_header_value if iam_auth_header_value
+
+      sig4_headers = Aws::Sigv4::Signer.new(
+        service: 'sts',
+        region: region_from_sts_endpoint(sts_endpoint),
+        credentials_provider: credentials_provider
+      ).sign_request(
+        http_method: request_method,
+        url: sts_endpoint,
+        headers: vault_headers,
+        body: request_body
+      ).headers
+
+      payload = {
+        role: role,
+        iam_http_request_method: request_method,
+        iam_request_url: Base64.strict_encode64(sts_endpoint),
+        iam_request_headers: Base64.strict_encode64(vault_headers.merge(sig4_headers).to_json),
+        iam_request_body: Base64.strict_encode64(request_body)
+      }
+
+      json = client.post('/v1/auth/aws/login', JSON.fast_generate(payload))
       secret = Secret.decode(json)
       client.token = secret.auth.client_token
       return secret
@@ -194,18 +252,40 @@ module Vault
     # @example Reading a pem from disk
     #   Vault.auth.tls(File.read("/path/to/my/certificate.pem")) #=> #<Vault::Secret lease_id="">
     #
+    # @example Sending to a cert authentication backend mounted at a custom location
+    #   Vault.auth.tls(pem_contents, 'custom/location') #=> #<Vault::Secret lease_id="">
+    #
     # @param [String] pem (default: the configured SSL pem file or contents)
     #   The raw pem contents to use for the login procedure.
     #
+    # @param [String] path (default: 'cert')
+    #   The path to the auth backend to use for the login procedure.
+    #
     # @return [Secret]
-    def tls(pem = nil)
+    def tls(pem = nil, path = 'cert')
       new_client = client.dup
       new_client.ssl_pem_contents = pem if !pem.nil?
 
-      json = new_client.post("/v1/auth/cert/login")
+      json = new_client.post("/v1/auth/#{CGI.escape(path)}/login")
       secret = Secret.decode(json)
       client.token = secret.auth.client_token
       return secret
+    end
+
+    private
+
+    # Parse an AWS region from a STS endpoint
+    # STS in the China (Beijing) region (cn-north-1) is sts.cn-north-1.amazonaws.com.cn
+    # Take care changing below regex with that edge case in mind
+    #
+    # @param [String] sts_endpoint
+    #   https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html
+    #
+    # @return [String] aws region
+    def region_from_sts_endpoint(sts_endpoint)
+      valid_sts_endpoint = %r{https:\/\/sts\.?(.*).amazonaws.com}.match(sts_endpoint)
+      raise "Unable to parse STS endpoint #{sts_endpoint}" unless valid_sts_endpoint
+      valid_sts_endpoint[1].empty? ? 'us-east-1' : valid_sts_endpoint[1]
     end
   end
 end

@@ -102,7 +102,7 @@ module Vault
     # Lookup information about the current token.
     #
     # @example
-    #   Vault.auth_token.lookup_self("abcd-...") #=> #<Vault::Secret lease_id="">
+    #   Vault.auth_token.lookup("abcd-...") #=> #<Vault::Secret lease_id="">
     #
     # @param [String] token
     # @param [Hash] options
@@ -215,7 +215,7 @@ module Vault
     # @return [true]
     def revoke_accessor(accessor, options = {})
       headers = extract_headers!(options)
-      client.put("/v1/auth/accessor/revoke-accessor", JSON.fast_generate(
+      client.put("/v1/auth/token/revoke-accessor", JSON.fast_generate(
         accessor: accessor,
       ), headers)
       return true
