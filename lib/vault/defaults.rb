@@ -26,6 +26,13 @@ module Vault
     # The maximum amount of time for a single exponential backoff to sleep.
     RETRY_MAX_WAIT = 2.0
 
+    # The default size of the connection pool
+    DEFAULT_POOL_SIZE = 16
+
+    # The set of exceptions that are detect and retried by default
+    # with `with_retries`
+    RETRIED_EXCEPTIONS = [HTTPServerError]
+
     class << self
       # The list of calculated options for this configurable.
       # @return [Hash]
@@ -42,11 +49,21 @@ module Vault
       # The vault token to use for authentiation.
       # @return [String, nil]
       def token
-        if VAULT_DISK_TOKEN.exist? && VAULT_DISK_TOKEN.readable?
-          VAULT_DISK_TOKEN.read
-        else
-          ENV["VAULT_TOKEN"]
+        if !ENV["VAULT_TOKEN"].nil?
+          return ENV["VAULT_TOKEN"]
         end
+
+        if VAULT_DISK_TOKEN.exist? && VAULT_DISK_TOKEN.readable?
+          return VAULT_DISK_TOKEN.read.chomp
+        end
+
+        nil
+      end
+
+      # The SNI host to use when connecting to Vault via TLS.
+      # @return [String, nil]
+      def hostname
+        ENV["VAULT_TLS_SERVER_NAME"]
       end
 
       # The number of seconds to wait when trying to open a connection before
@@ -54,6 +71,16 @@ module Vault
       # @return [String, nil]
       def open_timeout
         ENV["VAULT_OPEN_TIMEOUT"]
+      end
+
+      # The size of the connection pool to communicate with Vault
+      # @return Integer
+      def pool_size
+        if var = ENV["VAULT_POOL_SIZE"]
+          return var.to_i
+        else
+          DEFAULT_POOL_SIZE
+        end
       end
 
       # The HTTP Proxy server address as a string
@@ -94,10 +121,18 @@ module Vault
         ENV["VAULT_SSL_CIPHERS"] || SSL_CIPHERS
       end
 
+      # The raw contents (as a string) for the pem file. To specify the path to
+      # the pem file, use {#ssl_pem_file} instead. This value is preferred over
+      # the value for {#ssl_pem_file}, if set.
+      # @return [String, nil]
+      def ssl_pem_contents
+        ENV["VAULT_SSL_PEM_CONTENTS"]
+      end
+
       # The path to a pem on disk to use with custom SSL verification
       # @return [String, nil]
       def ssl_pem_file
-        ENV["VAULT_SSL_CERT"]
+        ENV["VAULT_SSL_CERT"] || ENV["VAULT_SSL_PEM_FILE"]
       end
 
       # Passphrase to the pem file on disk to use with custom SSL verification
@@ -111,7 +146,13 @@ module Vault
       def ssl_ca_cert
         ENV["VAULT_CACERT"]
       end
-      #
+
+      # The CA cert store to use for certificate verification
+      # @return [OpenSSL::X509::Store, nil]
+      def ssl_cert_store
+        nil
+      end
+
       # The path to the directory on disk holding CA certs to use
       # for certificate verification
       # @return [String, nil]
@@ -122,6 +163,11 @@ module Vault
       # Verify SSL requests (default: true)
       # @return [true, false]
       def ssl_verify
+        # Vault CLI uses this envvar, so accept it by precedence
+        if !ENV["VAULT_SKIP_VERIFY"].nil?
+          return false
+        end
+
         if ENV["VAULT_SSL_VERIFY"].nil?
           true
         else

@@ -1,9 +1,22 @@
 require "json"
 
-require_relative "../sys"
-
 module Vault
-  class Audit < Response.new(:type, :description, :options); end
+  class Audit < Response
+    # @!attribute [r] description
+    #   Description of the audit backend.
+    #   @return [String]
+    field :description
+
+    # @!attribute [r] options
+    #   Map of options configured to the audit backend.
+    #   @return [Hash<Symbol, Object>]
+    field :options
+
+    # @!attribute [r] type
+    #   Name of the audit backend.
+    #   @return [String]
+    field :type
+  end
 
   class Sys
     # List all audis for the vault.
@@ -14,6 +27,7 @@ module Vault
     # @return [Hash<Symbol, Audit>]
     def audits
       json = client.get("/v1/sys/audit")
+      json = json[:data] if json[:data]
       return Hash[*json.map do |k,v|
         [k.to_s.chomp("/").to_sym, Audit.decode(v)]
       end.flatten]
@@ -37,7 +51,7 @@ module Vault
     #
     # @return [true]
     def enable_audit(path, type, description, options = {})
-      client.put("/v1/sys/audit/#{CGI.escape(path)}", JSON.fast_generate(
+      client.put("/v1/sys/audit/#{encode_path(path)}", JSON.fast_generate(
         type:        type,
         description: description,
         options:     options,
@@ -53,7 +67,7 @@ module Vault
     #
     # @return [true]
     def disable_audit(path)
-      client.delete("/v1/sys/audit/#{CGI.escape(path)}")
+      client.delete("/v1/sys/audit/#{encode_path(path)}")
       return true
     end
   end

@@ -39,7 +39,7 @@ module Vault
       end
 
       it "uses ~/.vault-token when present" do
-        File.open(token, "w") { |f| f.write("testing") }
+        File.open(token, "w") { |f| f.write("testing\n") }
         expect(Defaults.token).to eq("testing")
       end
 
@@ -49,10 +49,18 @@ module Vault
         end
       end
 
-      it "prefers the local token over the environment" do
-        File.open(token, "w") { |f| f.write("testing1") }
+      it "prefers the environment over local token" do
+        File.open(token, "w") { |f| f.write("testing1\n") }
         with_stubbed_env("VAULT_TOKEN" => "testing2") do
-          expect(Defaults.token).to eq("testing1")
+          expect(Defaults.token).to eq("testing2")
+        end
+      end
+    end
+
+    describe ".hostname" do
+      it "defaults to ENV['VAULT_TLS_SERVER_NAME']" do
+        with_stubbed_env("VAULT_TLS_SERVER_NAME" => "www.foo.com") do
+          expect(Defaults.hostname).to eq("www.foo.com")
         end
       end
     end
@@ -119,6 +127,14 @@ module Vault
       end
     end
 
+    describe ".ssl_pem_contents" do
+      it "defaults to ENV['VAULT_SSL_PEM_CONTENTS']" do
+        with_stubbed_env("VAULT_SSL_PEM_CONTENTS" => "abcd-1234") do
+          expect(Defaults.ssl_pem_contents).to eq("abcd-1234")
+        end
+      end
+    end
+
     describe ".ssl_pem_file" do
       it "defaults to ENV['VAULT_SSL_CERT']" do
         with_stubbed_env("VAULT_SSL_CERT" => "~/path/to/cert") do
@@ -154,6 +170,12 @@ module Vault
     describe ".ssl_verify" do
       it "defaults to true" do
         expect(Defaults.ssl_verify).to be(true)
+      end
+
+      it "reads the value of ENV['VAULT_SKIP_VERIFY']" do
+        with_stubbed_env("VAULT_SKIP_VERIFY" => true) do
+          expect(Defaults.ssl_verify).to be(false)
+        end
       end
 
       it "reads the value of ENV['VAULT_SSL_VERIFY']" do

@@ -1,12 +1,12 @@
 require "cgi"
 require "json"
-require "net/http"
-require "net/https"
 require "uri"
 
+require_relative "persistent"
 require_relative "configurable"
 require_relative "errors"
 require_relative "version"
+require_relative "encode"
 
 module Vault
   class Client
@@ -15,6 +15,9 @@ module Vault
 
     # The name of the header used to hold the Vault token.
     TOKEN_HEADER = "X-Vault-Token".freeze
+
+    # The name of the header used to hold the wrapped request ttl.
+    WRAP_TTL_HEADER = "X-Vault-Wrap-TTL".freeze
 
     # The name of the header used for redirection.
     LOCATION_HEADER = "location".freeze
@@ -50,7 +53,14 @@ module Vault
       # only add them if they are defiend
       a << Net::ReadTimeout if defined?(Net::ReadTimeout)
       a << Net::OpenTimeout if defined?(Net::OpenTimeout)
+
+      a << PersistentHTTP::Error
     end.freeze
+
+    # Indicates a requested operation is not possible due to security
+    # concerns.
+    class SecurityError < RuntimeError
+    end
 
     include Vault::Configurable
 
@@ -64,6 +74,100 @@ module Vault
         value = options.key?(key) ? options[key] : Defaults.public_send(key)
         instance_variable_set(:"@#{key}", value)
       end
+
+      @lock = Mutex.new
+      @nhp = nil
+    end
+
+    def pool
+      @lock.synchronize do
+        return @nhp if @nhp
+
+        @nhp = PersistentHTTP.new("vault-ruby", nil, pool_size)
+
+        if hostname
+          @nhp.hostname = hostname
+        end
+
+        if proxy_address
+          proxy_uri = URI.parse "http://#{proxy_address}"
+
+          proxy_uri.port = proxy_port if proxy_port
+
+          if proxy_username
+            proxy_uri.user = proxy_username
+            proxy_uri.password = proxy_password
+          end
+
+          @nhp.proxy = proxy_uri
+        end
+
+        # Use a custom open timeout
+        if open_timeout || timeout
+          @nhp.open_timeout = (open_timeout || timeout).to_i
+        end
+
+        # Use a custom read timeout
+        if read_timeout || timeout
+          @nhp.read_timeout = (read_timeout || timeout).to_i
+        end
+
+        @nhp.verify_mode = OpenSSL::SSL::VERIFY_PEER
+
+        # Vault requires TLS1.2
+        @nhp.ssl_version = "TLSv1_2"
+
+        # Only use secure ciphers
+        @nhp.ciphers = ssl_ciphers
+
+        # Custom pem files, no problem!
+        pem = ssl_pem_contents || (ssl_pem_file ? File.read(ssl_pem_file) : nil)
+        if pem
+          @nhp.cert = OpenSSL::X509::Certificate.new(pem)
+          @nhp.key = OpenSSL::PKey::RSA.new(pem, ssl_pem_passphrase)
+        end
+
+        # Use custom CA cert for verification
+        if ssl_ca_cert
+          @nhp.ca_file = ssl_ca_cert
+        end
+
+        # Use custom CA path that contains CA certs
+        if ssl_ca_path
+          @nhp.ca_path = ssl_ca_path
+        end
+
+        if ssl_cert_store
+          @nhp.cert_store = ssl_cert_store
+        end
+
+        # Naughty, naughty, naughty! Don't blame me when someone hops in
+        # and executes a MITM attack!
+        if !ssl_verify
+          @nhp.verify_mode = OpenSSL::SSL::VERIFY_NONE
+        end
+
+        # Use custom timeout for connecting and verifying via SSL
+        if ssl_timeout || timeout
+          @nhp.ssl_timeout = (ssl_timeout || timeout).to_i
+        end
+
+        @nhp
+      end
+    end
+
+    private :pool
+
+    # Creates and yields a new client object with the given token. This may be
+    # used safely in a threadsafe manner because the original client remains
+    # unchanged. The value of the block is returned.
+    #
+    # @yield [Vault::Client]
+    def with_token(token)
+      client = self.dup
+      client.token = token
+      return yield client if block_given?
+      return nil
     end
 
     # Determine if the given options are the same as ours.
@@ -76,6 +180,13 @@ module Vault
     # @see Client#request
     def get(path, params = {}, headers = {})
       request_with_retries(:get, path, params, headers)
+    end
+
+    # Perform a LIST request.
+    # @see Client#request
+    def list(path, params = {}, headers = {})
+      params = params.merge(list: true)
+      request(:get, path, params, headers)
     end
 
     # Perform a POST request.
@@ -138,13 +249,17 @@ module Vault
       uri = build_uri(verb, path, data)
       request = class_for_request(verb).new(uri.request_uri)
 
+      if proxy_address and uri.scheme.downcase == "https"
+        raise SecurityError, "no direct https connection to vault"
+      end
+
       # Get a list of headers
       headers = DEFAULT_HEADERS.merge(headers)
 
       # Add the Vault token header - users could still override this on a
       # per-request basis
       if !token.nil?
-        request.add_field(TOKEN_HEADER, token)
+        headers[TOKEN_HEADER] ||= token
       end
 
       # Add headers
@@ -164,77 +279,23 @@ module Vault
         end
       end
 
-      # Create the HTTP connection object - since the proxy information defaults
-      # to +nil+, we can just pass it to the initializer method instead of doing
-      # crazy strange conditionals.
-      connection = Net::HTTP.new(uri.host, uri.port,
-        proxy_address, proxy_port, proxy_username, proxy_password)
-
-      # Use a custom open timeout
-      if open_timeout || timeout
-        connection.open_timeout = (open_timeout || timeout).to_i
-      end
-
-      # Use a custom read timeout
-      if read_timeout || timeout
-        connection.read_timeout = (read_timeout || timeout).to_i
-      end
-
-      # Apply SSL, if applicable
-      if uri.scheme == "https"
-        # Turn on SSL
-        connection.use_ssl = true
-
-        # Vault requires TLS1.2
-        connection.ssl_version = "TLSv1_2"
-
-        # Only use secure ciphers
-        connection.ciphers = ssl_ciphers
-
-        # Custom pem files, no problem!
-        if ssl_pem_file
-          pem = File.read(ssl_pem_file)
-          connection.cert = OpenSSL::X509::Certificate.new(pem)
-          connection.key = OpenSSL::PKey::RSA.new(pem, ssl_pem_passphrase)
-          connection.verify_mode = OpenSSL::SSL::VERIFY_PEER
-        end
-
-        # Use custom CA cert for verification
-        if ssl_ca_cert
-          connection.ca_file = ssl_ca_cert
-        end
-
-        # Use custom CA path that contains CA certs
-        if ssl_ca_path
-          connection.ca_path = ssl_ca_path
-        end
-
-        # Naughty, naughty, naughty! Don't blame me when someone hops in
-        # and executes a MITM attack!
-        if !ssl_verify
-          connection.verify_mode = OpenSSL::SSL::VERIFY_NONE
-        end
-
-        # Use custom timeout for connecting and verifying via SSL
-        if ssl_timeout || timeout
-          connection.ssl_timeout = (ssl_timeout || timeout).to_i
-        end
-      end
-
       begin
         # Create a connection using the block form, which will ensure the socket
         # is properly closed in the event of an error.
-        connection.start do |http|
-          response = http.request(request)
+        response = pool.request(uri, request)
 
-          case response
-          when Net::HTTPRedirection
-            request(verb, response[LOCATION_HEADER], data, headers)
-          when Net::HTTPSuccess
-            success(response)
-          else
-            error(response)
+        case response
+        when Net::HTTPRedirection
+          # On a redirect of a GET or HEAD request, the URL already contains
+          # the data as query string parameters.
+          if [:head, :get].include?(verb)
+            data = {}
           end
+          request(verb, response[LOCATION_HEADER], data, headers)
+        when Net::HTTPSuccess
+          success(response)
+        else
+          error(response)
         end
       rescue *RESCUED_EXCEPTIONS => e
         raise HTTPConnectionError.new(address, e)
@@ -360,12 +421,14 @@ module Vault
       exception    = nil
       retries      = 0
 
+      rescued = Defaults::RETRIED_EXCEPTIONS if rescued.empty?
+
       max_attempts = options[:attempts] || Defaults::RETRY_ATTEMPTS
       backoff_base = options[:base]     || Defaults::RETRY_BASE
       backoff_max  = options[:max_wait] || Defaults::RETRY_MAX_WAIT
 
       begin
-        return yield retries
+        return yield retries, exception
       rescue *rescued => e
         exception = e
 

@@ -34,8 +34,9 @@ module Vault
     #   the path to list
     #
     # @return [Array<String>]
-    def list(path)
-      json = client.get("/v1/#{CGI.escape(full_path(path))}", list: true)
+    def list(path, options = {})
+      headers = extract_headers!(options)
+      json = client.list("/v1/#{encode_path(full_path(path, options))}", {}, headers)
       json[:data][:keys] || []
     rescue HTTPError => e
       return [] if e.code == 404
@@ -54,7 +55,8 @@ module Vault
     # @return [Secret, nil]
     def read(path, options = {})
       sleep_jitter options
-      json = client.get("/v1/#{CGI.escape(full_path(path, options))}")
+      headers = extract_headers!(options)
+      json = client.get("/v1/#{encode_path(full_path(path, options))}", {}, headers)
       return Secret.decode(json)
     rescue HTTPError => e
       return nil if e.code == 404
@@ -73,8 +75,9 @@ module Vault
     #   the data to write
     #
     # @return [Secret]
-    def write(path, data = {})
-      json = client.put("/v1/#{CGI.escape(full_path(path))}", JSON.fast_generate(data))
+    def write(path, data = {}, options = {})
+      headers = extract_headers!(options)
+      json = client.put("/v1/#{encode_path(full_path(path, options))}", JSON.fast_generate(data), headers)
       if json.nil?
         return true
       else
@@ -93,14 +96,76 @@ module Vault
     #
     # @return [true]
     def delete(path)
-      client.delete("/v1/#{CGI.escape(full_path(path))}")
+      client.delete("/v1/#{encode_path(full_path(path))}")
       return true
     end
 
     
     def full_path(path, options = {})
+      puts "before fullpath: #{path}"
       prefix = options[:path_prefix] || client.options[:path_prefix]
-      [prefix, path].compact.join('/').gsub /\/+/, '/'
+      newpath = [prefix, path].compact.join('/').gsub /\/+/, '/'
+      puts "after fullpath: #{newpath}"
+      newpath
+    end
+
+    # Unwrap the data stored against the given token. If the secret does not
+    # exist, `nil` will be returned.
+    #
+    # @example
+    #   Vault.logical.unwrap("f363dba8-25a7-08c5-430c-00b2367124e6") #=> #<Vault::Secret lease_id="">
+    #
+    # @param [String] wrapper
+    #   the token to use when unwrapping the value
+    #
+    # @return [Secret, nil]
+    def unwrap(wrapper)
+      client.with_token(wrapper) do |client|
+        json = client.get("/v1/cubbyhole/response")
+        secret = Secret.decode(json)
+
+        # If there is nothing in the cubbyhole, return early.
+        if secret.nil? || secret.data.nil? || secret.data[:response].nil?
+          return nil
+        end
+
+        # Extract the response and parse it into a new secret.
+        json = JSON.parse(secret.data[:response], symbolize_names: true)
+        secret = Secret.decode(json)
+        return secret
+      end
+    rescue HTTPError => e
+      return nil if e.code == 404
+      raise
+    end
+
+    # Unwrap a token in a wrapped response given the temporary token.
+    #
+    # @example
+    #   Vault.logical.unwrap("f363dba8-25a7-08c5-430c-00b2367124e6") #=> "0f0f40fd-06ce-4af1-61cb-cdc12796f42b"
+    #
+    # @param [String, Secret] wrapper
+    #   the token to unwrap
+    #
+    # @return [String, nil]
+    def unwrap_token(wrapper)
+      # If provided a secret, grab the token. This is really just to make the
+      # API a bit nicer.
+      if wrapper.is_a?(Secret)
+        wrapper = wrapper.wrap_info.token
+      end
+
+      # Unwrap
+      response = unwrap(wrapper)
+
+      # If nothing was there, return nil
+      if response.nil? || response.auth.nil?
+        return nil
+      end
+
+      return response.auth.client_token
+    rescue HTTPError => e
+      raise
     end
   end
 end
