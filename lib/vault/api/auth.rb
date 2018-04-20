@@ -163,6 +163,25 @@ module Vault
       return secret
     end
 
+    # Authenticate via the Kubernetes authentication method. If authentication is
+    # successful, the resulting token will be stored on the client and used
+    # for future requests.
+    #
+    # @example
+    #   Vault.auth.kubernetes("dev-role", "kubernetes-jwt-token") #=> #<Vault::Secret lease_id="">
+    #
+    # @param [String] role
+    # @param [String] jwt_token
+    #
+    # @return [Secret]
+    def kubernetes(role, jwt_token)
+      payload = {role: role, jwt: jwt_token}
+      json = client.post("/v1/auth/kubernetes/login", JSON.fast_generate(payload))
+      secret = Secret.decode(json)
+      client.token = secret.auth.client_token
+      return secret
+    end
+
     # Authenticate via the AWS EC2 authentication method. If authentication is
     # successful, the resulting token will be stored on the client and used
     # for future requests.
