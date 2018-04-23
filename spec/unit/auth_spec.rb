@@ -26,5 +26,28 @@ module Vault
         it { expect { subject }.to raise_exception(StandardError, "Unable to parse STS endpoint https:sts.amazonaws.com") }
       end
     end
+
+    describe "#kubernetes" do
+      let(:client) { Vault::Client.new }
+      let(:auth) { Authenticate.new(client) }
+      let(:role) { "valid_role" }
+      let(:jwt_token) { "valid_jwt_token" }
+      let(:client_token) { "valid_client_token" }
+      let(:request_payload) { JSON.fast_generate({role: role, jwt: jwt_token}) }
+      let(:response_payload) { {auth: {client_token: client_token}} }
+      
+      context 'with valid role and jwt_token' do
+        it "should set Vault::Client.token" do
+          allow(client).to receive(:post).with("/v1/auth/kubernetes/login", request_payload).and_return(response_payload)
+          auth.send(:kubernetes, role, jwt_token)
+          expect(client.token).to eq(client_token)
+        end
+
+        it "should post to kubernetes login endpoint" do
+          expect(client).to receive(:post).with("/v1/auth/kubernetes/login", request_payload).and_return(response_payload)
+          auth.send(:kubernetes, role, jwt_token)
+        end
+      end
+    end
   end
 end
