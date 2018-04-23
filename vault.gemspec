@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.version       = Vault::VERSION
   spec.authors       = ["Seth Vargo"]
   spec.email         = ["sethvargo@gmail.com"]
-  spec.licenses      = ["MPLv2"]
+  spec.licenses      = ["MPL-2.0"]
 
   spec.summary       = "Vault is a Ruby API client for interacting with a Vault server."
   spec.description   = spec.summary
@@ -19,9 +19,12 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  spec.add_runtime_dependency "aws-sigv4"
+
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "pry"
-  spec.add_development_dependency "rake",    "~> 10.0"
-  spec.add_development_dependency "rspec",   "~> 3.2"
-  spec.add_development_dependency "webmock", "~> 1.22"
+  spec.add_development_dependency "rake",    "~> 12.0"
+  spec.add_development_dependency "rspec",   "~> 3.5"
+  spec.add_development_dependency "yard"
+  spec.add_development_dependency "webmock", "~> 2.3"
 end

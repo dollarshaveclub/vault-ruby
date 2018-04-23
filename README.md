@@ -53,6 +53,10 @@ Vault.configure do |config|
   # Custom SSL PEM, also read as ENV["VAULT_SSL_CERT"]
   config.ssl_pem_file = "/path/on/disk.pem"
 
+  # As an alternative to a pem file, you can provide the raw PEM string, also read in the following order of preference:
+  # ENV["VAULT_SSL_PEM_CONTENTS_BASE64"] then ENV["VAULT_SSL_PEM_CONTENTS"]
+  config.ssl_pem_contents = "-----BEGIN ENCRYPTED..."
+
   # Use SSL verification, also read as ENV["VAULT_SSL_VERIFY"]
   config.ssl_verify = false
 
@@ -73,6 +77,16 @@ If you do not want the Vault singleton, or if you need to communicate with multi
 ```ruby
 client_1 = Vault::Client.new(address: "https://vault.mycompany.com")
 client_2 = Vault::Client.new(address: "https://other-vault.mycompany.com")
+```
+
+And if you want to authenticate with a `AWS EC2` :
+
+```ruby
+    # Export VAULT_ADDR to ENV then
+    # Get the pkcs7 value from AWS
+    signature = `curl http://169.254.169.254/latest/dynamic/instance-identity/pkcs7`
+    vault_token = Vault.auth.aws_ec2(ENV['EC2_ROLE'], signature, nil)
+    vault_client = Vault::Client.new(address: ENV["VAULT_ADDR"], token: vault_token.auth.client_token)
 ```
 
 ### Making requests
@@ -151,10 +165,38 @@ Vault.logical.read("secret/bacon")
 #=> #<Vault::Secret lease_id="">
 ```
 
-#### Seal the Vault
+#### Retrieve the Contents of a Secret
 ```ruby
-Vault.sys.seal #=> true
+secret = Vault.logical.read("secret/bacon")
+secret.data #=> { :cooktime = >"11", :delicious => true }
 ```
+
+### Response wrapping
+
+```ruby
+# Request new access token as wrapped response where the TTL of the temporary
+# token is "5s".
+wrapped = Vault.auth_token.create(wrap_ttl: "5s")
+
+# Unwrap the wrapped response to get the final token using the initial temporary
+# token from the first request.
+unwrapped = Vault.logical.unwrap(wrapped.wrap_info.token)
+
+# Extract the final token from the response.
+token = unwrapped.data.auth.client_token
+```
+
+A helper function is also provided when unwrapping a token directly:
+
+```ruby
+# Request new access token as wrapped response where the TTL of the temporary
+# token is "5s".
+wrapped = Vault.auth_token.create(wrap_ttl: "5s")
+
+# Unwrap wrapped response for final token using the initial temporary token.
+token = Vault.logical.unwrap_token(wrapped)
+```
+
 
 Development
 -----------
@@ -167,3 +209,4 @@ Important Notes:
 - **All new features must include test coverage.** At a bare minimum, Unit tests are required. It is preferred if you include acceptance tests as well.
 - **The tests must be be idempotent.** The HTTP calls made during a test should be able to be run over and over.
 - **Tests are order independent.** The default RSpec configuration randomizes the test order, so this should not be a problem.
+- **Integration tests require Vault**  Vault must be available in the path for the integration tests to pass.
