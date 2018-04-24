@@ -102,11 +102,8 @@ module Vault
 
     
     def full_path(path, options = {})
-      puts "before fullpath: #{path}"
       prefix = options[:path_prefix] || client.options[:path_prefix]
-      newpath = [prefix, path].compact.join('/').gsub /\/+/, '/'
-      puts "after fullpath: #{newpath}"
-      newpath
+      [prefix, path].compact.join('/').gsub /\/+/, '/'
     end
 
     # Unwrap the data stored against the given token. If the secret does not
