@@ -55,6 +55,20 @@ module Vault
         Kernel.should_receive(:sleep).with(jitter_amount / 1000.0)
         subject.read("secret/test-read", :jitter_size => 1, :jitter_constant => jitter_amount)
       end
+      
+      it "caches results if cache option is enabled" do
+        subject.write("secret/test-read", foo: "bar")
+        Vault::Client.any_instance.should_receive(:get).once.and_call_original
+        expect(subject.read("secret/test-read", cache: true).data).to eq(foo: "bar")
+        expect(subject.read("secret/test-read", cache: true).data).to eq(foo: "bar")
+      end
+
+      it "performs request request each time if cache option is not defined" do
+        subject.write("secret/test-read", foo: "bar")
+        Vault::Client.any_instance.should_receive(:get).twice.and_call_original
+        expect(subject.read("secret/test-read").data).to eq(foo: "bar")
+        expect(subject.read("secret/test-read").data).to eq(foo: "bar")
+      end
     end
 
     describe "#write" do

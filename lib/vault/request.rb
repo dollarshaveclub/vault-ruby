@@ -1,9 +1,11 @@
 module Vault
   class Request
     attr_reader :client
+    attr_writer :cache
 
     def initialize(client)
       @client = client
+      @cache = Hash.new
     end
 
     # @return [String]

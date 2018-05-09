@@ -28,7 +28,8 @@ module Vault
         :path_prefix,
         :jitter_multiplier,
         :jitter_size,
-        :jitter_constant
+        :jitter_constant,
+        :cache
       ]
     end
 

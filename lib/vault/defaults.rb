@@ -216,6 +216,12 @@ module Vault
       def jitter_constant
         ENV["VAULT_JITTER_CONSTANT"] || 0
       end
+
+      # A default options for caching reads
+      # @return [true, false]
+      def cache
+        ENV["VAULT_CACHE"] == 'true'
+      end
     end
   end
 end

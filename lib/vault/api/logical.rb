@@ -1,5 +1,6 @@
 require_relative "secret"
 require_relative "jitterable"
+require_relative "cacheable"
 require_relative "../client"
 require_relative "../request"
 require_relative "../response"
@@ -13,7 +14,7 @@ module Vault
     end
 
     def read(path, options = {})
-      logical.read(path, options).try(:data).try(:[], :value)
+      result = logical.read(path, options)
     end
 
     def full_path(path, options = {})
@@ -23,7 +24,8 @@ module Vault
 
   class Logical < Request
     include Vault::Jitterable
-
+    include Vault::Cacheable
+    
     # List the secrets at the given path, if the path supports listing. If the
     # the path does not exist, an exception will be raised.
     #
@@ -54,10 +56,13 @@ module Vault
     #
     # @return [Secret, nil]
     def read(path, options = {})
-      sleep_jitter options
-      headers = extract_headers!(options)
-      json = client.get("/v1/#{encode_path(full_path(path, options))}", {}, headers)
-      return Secret.decode(json)
+      url_path = "/v1/#{encode_path(full_path(path, options))}"
+      cache(url_path, options[:cache] || client.options['cache']) do 
+        sleep_jitter options
+        headers = extract_headers!(options)
+        json = client.get(url_path, {}, headers)
+        Secret.decode(json)
+      end
     rescue HTTPError => e
       return nil if e.code == 404
       raise
