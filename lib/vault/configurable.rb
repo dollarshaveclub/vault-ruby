@@ -29,7 +29,8 @@ module Vault
         :jitter_multiplier,
         :jitter_size,
         :jitter_constant,
-        :cache
+        :cache,
+        :raise_on_not_found
       ]
     end
 

@@ -1,5 +1,14 @@
 module Vault
   class VaultError < RuntimeError; end
+  class SecretNotFoundError < VaultError
+    attr_reader :secret_path
+    def initialize(secret_path)
+      @secret_path = secret_path
+      super <<-EOH
+Vault secret(s) cannot be found in path: #{secret_path}.  Please double check to make sure secrets are properly populated.
+EOH
+    end
+  end
 
   class MissingTokenError < VaultError
     def initialize

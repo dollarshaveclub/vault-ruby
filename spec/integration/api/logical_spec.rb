@@ -9,6 +9,12 @@ module Vault
         expect(subject.list("secret/that/never/existed")).to eq([])
       end
 
+      it "throws SecretNotFoundError when raise_on_not_found flag is true and secret does not exist" do
+        expect do
+          subject.list("secret/foo/bar/zip", raise_on_not_found: true)
+        end.to raise_error(SecretNotFoundError)
+      end
+
       it "returns all secrets" do
         subject.write("secret/test-list-1", foo: "bar")
         subject.write("secret/test-list-2", foo: "bar")
@@ -22,6 +28,12 @@ module Vault
     describe "#read" do
       it "returns nil with the thing does not exist" do
         expect(subject.read("secret/foo/bar/zip")).to be(nil)
+      end
+
+      it "throws SecretNotFoundError when raise_on_not_found flag is true and secret does not exist" do
+        expect do
+          subject.read("secret/foo/bar/zip", raise_on_not_found: true)
+        end.to raise_error(SecretNotFoundError)
       end
 
       it "returns the secret when it exists" do

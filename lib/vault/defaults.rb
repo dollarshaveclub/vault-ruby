@@ -222,6 +222,12 @@ module Vault
       def cache
         ENV["VAULT_CACHE"] == 'true'
       end
+
+      # A default options to raise error when secret not found
+      # @return [true, false]
+      def raise_on_not_found
+        ENV["VAULT_RAISE_ON_NOT_FOUND"] == 'true'
+      end
     end
   end
 end

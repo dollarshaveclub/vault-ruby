@@ -41,7 +41,11 @@ module Vault
       json = client.list("/v1/#{encode_path(full_path(path, options))}", {}, headers)
       json[:data][:keys] || []
     rescue HTTPError => e
-      return [] if e.code == 404
+      if (options[:raise_on_not_found] || client.options[:raise_on_not_found]) && e.code == 404
+        raise SecretNotFoundError.new(full_path(path, options))
+      else 
+        return []
+      end
       raise
     end
 
@@ -57,14 +61,18 @@ module Vault
     # @return [Secret, nil]
     def read(path, options = {})
       url_path = "/v1/#{encode_path(full_path(path, options))}"
-      cache(url_path, options[:cache] || client.options['cache']) do 
+      cache(url_path, options[:cache] || client.options[:cache]) do 
         sleep_jitter options
         headers = extract_headers!(options)
         json = client.get(url_path, {}, headers)
         Secret.decode(json)
       end
     rescue HTTPError => e
-      return nil if e.code == 404
+      if (options[:raise_on_not_found] || client.options[:raise_on_not_found]) && e.code == 404
+        raise SecretNotFoundError.new(full_path(path, options))
+      else 
+        return nil
+      end
       raise
     end
 
@@ -137,7 +145,11 @@ module Vault
         return secret
       end
     rescue HTTPError => e
-      return nil if e.code == 404
+      if (options[:raise_on_not_found] || client.options[:raise_on_not_found]) && e.code == 404
+        raise SecretNotFoundError.new(full_path(path, options))
+      else 
+        return nil
+      end
       raise
     end
 
