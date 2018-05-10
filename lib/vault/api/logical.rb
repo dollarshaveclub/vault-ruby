@@ -12,9 +12,15 @@ module Vault
     def logical
       @logical ||= Logical.new(self)
     end
-
-    def read(path, options = {})
+    
+    # A convenience method to Vault.logical.read with special logic to unwrap secrets with key of 'value'
+    # example:  if a secret exists at secret/test/password contains the the payload: {"value": "password"}
+    #           you can retrieve it via Vault.read_value('/secret/test/password') # "password"
+    # @return [String]
+    def read_value(path, options = {})
       result = logical.read(path, options)
+      return nil if result.nil? || result.data.nil? || result.data[:value].nil?
+      result.data[:value]
     end
 
     def full_path(path, options = {})
