@@ -68,6 +68,7 @@ module Vault
     def read(path, options = {})
       url_path = "/v1/#{encode_path(full_path(path, options))}"
       cache(url_path, options[:cache] || client.options[:cache]) do 
+        puts "EXECUTING CACHE MISS BLOCK"
         sleep_jitter options
         headers = extract_headers!(options)
         json = client.get(url_path, {}, headers)
