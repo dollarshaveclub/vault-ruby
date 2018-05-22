@@ -46,7 +46,7 @@ module Vault
 
         client = described_class.new(address: address, token: "foo", ignore_connection_errors: true)
         result = client.request(:get, "/", {}, {})
-        expect(result).to be_nil
+        expect(result).to eq({})
       end
 
       it "raises an error when a token was missing" do
