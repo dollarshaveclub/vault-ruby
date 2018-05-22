@@ -298,7 +298,7 @@ module Vault
           error(response)
         end
       rescue *RESCUED_EXCEPTIONS => e
-        raise HTTPConnectionError.new(address, e)
+        raise HTTPConnectionError.new(address, e) unless options[:ignore_connection_errors]
       end
     end
 

@@ -228,6 +228,13 @@ module Vault
       def raise_on_not_found
         ENV["VAULT_RAISE_ON_NOT_FOUND"] == 'true'
       end
+
+
+      # A default options to ignore exceptions such when devleoping locally
+      # @return [true, false]
+      def ignore_connection_errors
+        ENV["IGNORE_CONNECTION_ERRORS"] == 'true'
+      end
     end
   end
 end

@@ -41,6 +41,14 @@ module Vault
         expect { client.request(:get, "/", {}, {}) }.to raise_error(HTTPConnectionError)
       end
 
+      it "does not raise HTTPConnectionError if the port on the remote server is not open and ignore_connection_errors is true" do
+        address = "http://%s:%s" % free_address
+
+        client = described_class.new(address: address, token: "foo", ignore_connection_errors: true)
+        result = client.request(:get, "/", {}, {})
+        expect(result).to be_nil
+      end
+
       it "raises an error when a token was missing" do
         client = Vault::Client.new(
           address: RSpec::VaultServer.address,

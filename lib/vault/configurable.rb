@@ -30,7 +30,8 @@ module Vault
         :jitter_size,
         :jitter_constant,
         :cache,
-        :raise_on_not_found
+        :raise_on_not_found,
+        :ignore_connection_errors
       ]
     end
 
