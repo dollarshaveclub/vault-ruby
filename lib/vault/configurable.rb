@@ -31,7 +31,8 @@ module Vault
         :jitter_constant,
         :cache,
         :raise_on_not_found,
-        :ignore_connection_errors
+        :ignore_connection_errors,
+        :k8s_auth_path
       ]
     end
 

@@ -174,9 +174,10 @@ module Vault
     # @param [String] jwt_token
     #
     # @return [Secret]
-    def kubernetes(role, jwt_token)
+    def kubernetes(role, jwt_token, options = {} )
       payload = {role: role, jwt: jwt_token}
-      json = client.post("/v1/auth/kubernetes/login", JSON.fast_generate(payload))
+      k8s_auth_path = options[:k8s_auth_path] || Defaults.k8s_auth_path
+      json = client.post("/v1/auth/#{k8s_auth_path}/login", JSON.fast_generate(payload))
       secret = Secret.decode(json)
       client.token = secret.auth.client_token
       return secret

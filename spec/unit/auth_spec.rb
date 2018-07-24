@@ -35,6 +35,7 @@ module Vault
       let(:client_token) { "valid_client_token" }
       let(:request_payload) { JSON.fast_generate({role: role, jwt: jwt_token}) }
       let(:response_payload) { {auth: {client_token: client_token}} }
+      let(:k8s_auth_path) { "new-cluster"}
       
       context 'with valid role and jwt_token' do
         it "should set Vault::Client.token" do
@@ -47,6 +48,20 @@ module Vault
           expect(client).to receive(:post).with("/v1/auth/kubernetes/login", request_payload).and_return(response_payload)
           auth.send(:kubernetes, role, jwt_token)
         end
+      end
+
+      context 'with optional k8s_auth_path' do
+        it "should allow optional k8s_auth_path when setting Vault::Client.token" do 
+          allow(client).to receive(:post).with("/v1/auth/#{k8s_auth_path}/login", request_payload).and_return(response_payload)
+          auth.send(:kubernetes, role, jwt_token, { k8s_auth_path: k8s_auth_path })
+          expect(client.token).to eq(client_token)
+        end
+    
+        it "should post to the optional k8s auth endpoint" do 
+          expect(client).to receive(:post).with("/v1/auth/#{k8s_auth_path}/login", request_payload).and_return(response_payload)
+          auth.send(:kubernetes, role, jwt_token, { k8s_auth_path: k8s_auth_path })
+        end
+
       end
     end
   end

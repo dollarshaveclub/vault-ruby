@@ -213,5 +213,13 @@ module Vault
         end
       end
     end
+
+    describe ".k8s_auth_path" do
+      it "defaults to ENV['VAULT_K8S_AUTH_PATH']" do
+        with_stubbed_env("VAULT_K8S_AUTH_PATH" => "new-cluster") do
+          expect(Defaults.k8s_auth_path).to eq("new-cluster")
+        end
+      end
+    end
   end
 end
