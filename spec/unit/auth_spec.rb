@@ -50,16 +50,16 @@ module Vault
         end
       end
 
-      context 'with optional k8s_auth_path' do
-        it "should allow optional k8s_auth_path when setting Vault::Client.token" do 
-          allow(client).to receive(:post).with("/v1/auth/#{k8s_auth_path}/login", request_payload).and_return(response_payload)
-          auth.send(:kubernetes, role, jwt_token, { k8s_auth_path: k8s_auth_path })
+      context 'with optional k8s_auth_url_prefix' do
+        it "should allow optional k8s_auth_url_prefix when setting Vault::Client.token" do 
+          allow(client).to receive(:post).with("/v1/auth/#{k8s_auth_url_prefix}/login", request_payload).and_return(response_payload)
+          auth.send(:kubernetes, role, jwt_token, { k8s_auth_url_prefix: k8s_auth_url_prefix })
           expect(client.token).to eq(client_token)
         end
     
         it "should post to the optional k8s auth endpoint" do 
-          expect(client).to receive(:post).with("/v1/auth/#{k8s_auth_path}/login", request_payload).and_return(response_payload)
-          auth.send(:kubernetes, role, jwt_token, { k8s_auth_path: k8s_auth_path })
+          expect(client).to receive(:post).with("/v1/auth/#{k8s_auth_url_prefix}/login", request_payload).and_return(response_payload)
+          auth.send(:kubernetes, role, jwt_token, { k8s_auth_url_prefix: k8s_auth_url_prefix })
         end
 
       end

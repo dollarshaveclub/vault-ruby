@@ -238,8 +238,8 @@ module Vault
 
       # A default auth path option for using this gem with Kubernetes service accounts
       # the value is added to the auth.kubernetes
-      def k8s_auth_path
-        ENV["VAULT_K8S_AUTH_PATH"] || 'kubernetes'
+      def k8s_auth_url_prefix
+        ENV["VAULT_K8S_AUTH_URL_PREFIX"] || 'kubernetes'
       end
 
     end
