@@ -32,7 +32,7 @@ module Vault
         :cache,
         :raise_on_not_found,
         :ignore_connection_errors,
-        :k8s_auth_path
+        :k8s_auth_url_prefix
       ]
     end
 
